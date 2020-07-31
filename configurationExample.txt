@@ -1,0 +1,19 @@
+	<configuration>
+		<stop-on-errors>true</stop-on-errors>
+		<wildcard>true</wildcard>
+		<custom-converters>
+			<converter
+				type="aaa.dozer.OffsetDateTimeStringDozerConverter">
+				<class-a>java.lang.String</class-a>
+				<class-b>java.time.OffsetDateTime</class-b>
+			</converter>
+			<!-- Dozer 5.5.1 does not properly map Java8 date/time libraries. Uses 
+				this custom converter to perform the conversion. -->
+			<converter
+				type="aaa.converter.OffsetDateTimeDozerCompatabilityConverter">
+				<class-a>java.time.OffsetDateTime</class-a>
+				<class-b>java.time.OffsetDateTime</class-b>
+			</converter>
+			
+		</custom-converters>
+	</configuration>
