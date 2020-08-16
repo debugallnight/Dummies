@@ -10,3 +10,30 @@
         }
         return jsonString;
     }
+
+
+ @Test
+    public void testSendFood() throws Exception {
+        
+        Food Food = getFood();
+        SendFoodRequestDto requestDto = getSendFoodRequestDto();
+        
+        String jsonInput = writeValueAsString(requestDto);
+        
+        when(FoodService.save(Mockito.anyObject(), Mockito.anyObject()))
+                .thenReturn(Food);
+        
+        mockMvc.perform(
+                post(UrlConstants.URL_FoodS + "?action=SEND")
+                        .contentType(MediaType.APPLICATION_JSON).content(jsonInput))
+                .andExpect(status().isCreated())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON_UTF8_VALUE))
+                .andExpect(jsonPath("$.FoodId").value(UUID))
+                .andExpect(jsonPath("$.proposedUsername")
+                        .value(requestDto.getProposedUsername()));
+        
+        verify(FoodService, times(1)).save(Matchers.argThat(new AnyFood()),
+                Matchers.argThat(new AnyActionType()));
+        verifyNoMoreInteractions(FoodService);
+    }
+    
