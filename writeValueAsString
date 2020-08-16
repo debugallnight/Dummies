@@ -11,7 +11,13 @@
         return jsonString;
     }
 
-
+    private ObjectMapper jsonObjectMapper() {
+        return Jackson2ObjectMapperBuilder.json()
+                .featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS) // ISODate
+                .modules(new JSR310Module())
+                .build();
+    }
+    
  @Test
     public void testSendFood() throws Exception {
         
