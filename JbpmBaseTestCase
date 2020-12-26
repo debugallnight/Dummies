@@ -1,0 +1,66 @@
+package com.test;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+
+import org.jbpm.test.JbpmJUnitBaseTestCase;
+import org.junit.After;
+import org.kie.api.runtime.KieSession;
+import org.kie.api.runtime.manager.RuntimeEngine;
+import org.kie.api.runtime.process.ProcessInstance;
+import org.kie.api.task.TaskService;
+import org.kie.api.task.model.Status;
+import org.kie.api.task.model.Task;
+
+public abstract class JbpmBaseTestCase extends JbpmJUnitBaseTestCase {
+
+    protected static final Status[] openStatuses = { Status.Ready, Status.Reserved };
+    protected RuntimeEngine runtimeEngine;
+    protected KieSession ksession;
+    protected TaskService taskService;
+    
+    public JbpmBaseTestCase() {
+        super(true, true);
+    }
+    
+    public void setUp() throws Exception {
+        super.setUp();
+
+        createRuntimeManager(getProcessDefinitionFileNames());
+        runtimeEngine = getRuntimeEngine();
+        ksession = runtimeEngine.getKieSession();
+        taskService = runtimeEngine.getTaskService();
+    }
+
+    public void tearDown() throws Exception {
+        super.tearDown();
+    }
+
+    protected ProcessInstance startProcess(String processId, Map<String, Object> params) {
+        return ksession.startProcess(processId, params);
+    }
+
+    protected void completeTask(ProcessInstance processInstance, String userName, String stepName,
+            Map<String, Object> params) {
+        String taskName = getOpenTaskFromProcessInstanceId(processInstance.getId()).getNames().get(0).getText();
+        assertEquals(taskName, stepName);
+
+        Task task = getOpenTaskFromProcessInstanceId(processInstance.getId());
+        taskService.start(task.getId(), userName);
+        taskService.complete(task.getId(), userName, params);
+    }
+
+    protected Task getOpenTaskFromProcessInstanceId(long processInstanceId) {
+        List<Long> taskIds = taskService.getTasksByProcessInstanceId(processInstanceId);
+        for (Long taskId : taskIds) {
+            Task task = taskService.getTaskById(taskId);
+            if (Arrays.asList(openStatuses).contains(task.getTaskData().getStatus())) {
+                return task;
+            }
+        }
+        return null;
+    }
+
+    protected abstract String[] getProcessDefinitionFileNames();
+}
