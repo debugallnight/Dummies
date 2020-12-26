@@ -1,0 +1,540 @@
+package com.test;
+
+import com.test.bpm.masaJbpmBaseTestCase;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+
+import org.jbpm.services.task.exception.PermissionDeniedException;
+import org.junit.Test;
+import org.kie.api.runtime.process.ProcessInstance;
+import org.kie.api.task.model.Task;
+
+public class LoanNotFoundReviewBpmnTest extends JbpmBaseTestCase {
+
+    // ----------------------------------------------------------------------------------------- Setup for JBPM6 Testing
+
+    @Override
+    protected String[] getProcessDefinitionFileNames() {
+        String[] definitionFiles = { "LoanNotFoundReview.bpmn2" };
+        return definitionFiles;
+    }
+
+    // ------------------------------------------------------------------- Setup for 
+
+    // The process id should match the id value found here
+    // /src/main/resources/LoanNotFoundReview.bpmn2
+    // In the source view of the BPMN file (right click, select "Show Source View"):
+    // <bpmn2:process id="changed.LoanNotFound" ...>
+    private static final String LOAN_NOT_FOUND_REVIEW_PROCESS_ID = "changed.LoanNotFound";
+
+    // Node enumeration of the AMRP BPMN file
+    private enum Node {
+        LOAN_NOT_FOUND_START_NODE("LOAN Not Found Start"),
+
+        REVIEW_LOAN_NOT_FOUND_UESR_TASK("Review LOAN Not Found"),
+        REVIEW_LOAN_NOT_FOUND_END_NODE("Review LOAN Not Found End"),
+
+        APPROVE_LOAN_NOT_FOUND_UESR_TASK("Approve LOAN Not Found"),
+        APPROVE_LOAN_NOT_FOUND_END_NODE("Approve LOAN Not Found End");
+
+        private final String name;
+
+        private Node(String name) {
+            this.name = name;
+        }
+
+        public String getName() {
+            return this.name;
+        }
+    }
+
+    // Roles enumeration for interacting with the BPMN
+    private enum Role {
+
+        // These are the roles used in the "value" portions of the usergroups.properties file
+        // /src/test/resources/usergroups.properties
+
+        // These roles are used to populate the Role lists in the User enumeration
+
+        A_LOAN_NOT_FOUND_REVIEWER,
+        A_LOAN_NOT_FOUND_APPROVER,
+
+        B_LOAN_NOT_FOUND_REVIEWER,
+        B_LOAN_NOT_FOUND_APPROVER;
+    }
+
+    // Users enumeration with various Roles for interacting with the BPMN
+    private enum User {
+
+        // Be sure this enumeration reflects the state of the usergroups.properties file
+        // /src/test/resources/usergroups.properties
+
+        // usergroups.properties "name" values correspond to the username String values here
+        // usergroups.properties "value" values correspond to the Roles in the Roles enumeration
+
+        A_LOAN_NOT_FOUND_REVIEWER("ALoanNotFoundReviewer",
+                new Role[] { Role.A_LOAN_NOT_FOUND_REVIEWER }),
+        A_LOAN_NOT_FOUND_APPROVER("ALoanNotFoundApprover",
+                new Role[] { Role.A_LOAN_NOT_FOUND_APPROVER }),
+
+        B_LOAN_NOT_FOUND_REVIEWER("BLoanNotFoundReviewer",
+                new Role[] { Role.B_LOAN_NOT_FOUND_REVIEWER }),
+        B_LOAN_NOT_FOUND_APPROVER("BLoanNotFoundApprover",
+                new Role[] { Role.B_LOAN_NOT_FOUND_APPROVER });
+
+        private final String username;
+        private final ArrayList<Role> rolesList;
+
+        private User(String username, Role[] rolesArray) {
+            this.username = username;
+
+            this.rolesList = new ArrayList<Role>();
+            Collections.addAll(this.rolesList, rolesArray);
+        }
+
+        public String getUsername() {
+            return this.username;
+        }
+
+        public ArrayList<Role> getRolesList() {
+            return this.rolesList;
+        }
+
+        public static User getFirstUserWithRole(Role role) {
+            for (User currentUser : values()) {
+                if (currentUser.getRolesList().contains(role)) {
+                    return currentUser;
+                }
+            }
+
+            return null;
+        }
+    }
+
+    // Process management variables
+    ProcessInstance processInstance;
+    Task task;
+    Integer stepCounter;
+
+    // A MRP changed Review BPMN variables
+    String entityId;
+    String documentReviewResult;
+    String verificationReviewResult;
+    String exceptionReviewRequested;
+
+    // User variable for switching to appropriate role
+    User user;
+
+    // ---------------------------------------------------------------------------------------- Complete Process Testing
+
+    @Test
+    public void testLoanNotFoundReviewHappyPath() {
+
+        // Gather parameters
+        Map<String, Object> params = generateLoanNotFoundReviewParameters("A");
+
+        // Start Default Review Process
+        ProcessInstance processInstance = startLoanNotFoundReviewProcess(params);
+
+        // Claim ReviewLoanNotFound Task with LOAN_NOT_FOUND_REVIEWER user
+        User ALoanNotFoundReviewer = User.getFirstUserWithRole(Role.A_LOAN_NOT_FOUND_REVIEWER);
+        Task task = claimReviewLoanNotFoundTask(processInstance, ALoanNotFoundReviewer);
+
+        // Perform ReviewLoanNotFound Task with LOAN_NOT_FOUND_REVIEWER user
+        String LoanNotFoundReviewResult = "approve";
+        performReviewLoanNotFoundTask(processInstance, ALoanNotFoundReviewer, task,
+                LoanNotFoundReviewResult);
+
+    }
+
+    @Test
+    public void testLoanNotFoundReviewApprover() {
+
+        // Gather parameters
+        Map<String, Object> params = generateLoanNotFoundReviewParameters("A");
+
+        // Start Default Review Process
+        ProcessInstance processInstance = startLoanNotFoundReviewProcess(params);
+
+        // Claim ReviewLoanNotFound Task with LOAN_NOT_FOUND_REVIEWER user
+        User ALoanNotFoundReviewer = User.getFirstUserWithRole(Role.A_LOAN_NOT_FOUND_REVIEWER);
+        Task task = claimReviewLoanNotFoundTask(processInstance, ALoanNotFoundReviewer);
+
+        // Perform ReviewLoanNotFound Task with LOAN_NOT_FOUND_REVIEWER user
+        String LoanNotFoundReviewResult = "deny";
+        performReviewLoanNotFoundTask(processInstance, ALoanNotFoundReviewer, task, LoanNotFoundReviewResult);
+
+        // Claim ApproveLoanNotFound Task with LOAN_NOT_FOUND_APPROVER user
+        User ALoanNotFoundApprover = User.getFirstUserWithRole(Role.A_LOAN_NOT_FOUND_APPROVER);
+        task = claimApproveLoanNotFoundTask(processInstance, ALoanNotFoundApprover);
+
+        // Perform ApproveLoanNotFound Task with LOAN_NOT_FOUND_APPROVER user
+        String LoanNotFoundApproveResult = "approve";
+        performApproveLoanNotFoundTask(processInstance, ALoanNotFoundApprover, task,
+                LoanNotFoundApproveResult);
+
+    }
+
+    @Test
+    public void testLoanNotFoundReviewReturnToReviewer() {
+
+        // Gather parameters
+        Map<String, Object> params = generateLoanNotFoundReviewParameters("A");
+
+        // Start Default Review Process
+        ProcessInstance processInstance = startLoanNotFoundReviewProcess(params);
+
+        // Claim ReviewLoanNotFound Task with LOAN_NOT_FOUND_REVIEWER user
+        User ALoanNotFoundReviewer = User.getFirstUserWithRole(Role.A_LOAN_NOT_FOUND_REVIEWER);
+        Task task = claimReviewLoanNotFoundTask(processInstance, ALoanNotFoundReviewer);
+
+        // Perform ReviewLoanNotFound Task with LOAN_NOT_FOUND_REVIEWER user
+        String LoanNotFoundReviewResult = "deny";
+        performReviewLoanNotFoundTask(processInstance, ALoanNotFoundReviewer, task, LoanNotFoundReviewResult);
+
+        // Claim ApproveLoanNotFound Task with LOAN_NOT_FOUND_APPROVER user
+        User ALoanNotFoundApprover = User.getFirstUserWithRole(Role.A_LOAN_NOT_FOUND_APPROVER);
+        task = claimApproveLoanNotFoundTask(processInstance, ALoanNotFoundApprover);
+
+        // Perform ApproveLoanNotFound Task with LOAN_NOT_FOUND_APPROVER user
+        String LoanNotFoundApproveResult = "return";
+        performApproveLoanNotFoundTask(processInstance, ALoanNotFoundApprover, task,
+                LoanNotFoundApproveResult);
+
+        // Claim ReviewLoanNotFound Task with LOAN_NOT_FOUND_REVIEWER user
+        task = claimReviewLoanNotFoundTask(processInstance, ALoanNotFoundReviewer);
+
+        // Perform ReviewLoanNotFound Task with LOAN_NOT_FOUND_REVIEWER user
+        LoanNotFoundReviewResult = "approve";
+        performReviewLoanNotFoundTask(processInstance, ALoanNotFoundReviewer, task, LoanNotFoundReviewResult);
+
+    }
+
+    @Test
+    public void testLoanNotFoundReviewReturnToApprover() {
+
+        // Gather parameters
+        Map<String, Object> params = generateLoanNotFoundReviewParameters("A");
+
+        // Start Default Review Process
+        ProcessInstance processInstance = startLoanNotFoundReviewProcess(params);
+
+        // Claim ReviewLoanNotFound Task with LOAN_NOT_FOUND_REVIEWER user
+        User ALoanNotFoundReviewer = User.getFirstUserWithRole(Role.A_LOAN_NOT_FOUND_REVIEWER);
+        Task task = claimReviewLoanNotFoundTask(processInstance, ALoanNotFoundReviewer);
+
+        // Perform ReviewLoanNotFound Task with LOAN_NOT_FOUND_REVIEWER user
+        String LoanNotFoundReviewResult = "deny";
+        performReviewLoanNotFoundTask(processInstance, ALoanNotFoundReviewer, task, LoanNotFoundReviewResult);
+
+        // Claim ApproveLoanNotFound Task with LOAN_NOT_FOUND_APPROVER user
+        User ALoanNotFoundApprover = User.getFirstUserWithRole(Role.A_LOAN_NOT_FOUND_APPROVER);
+        task = claimApproveLoanNotFoundTask(processInstance, ALoanNotFoundApprover);
+
+        // Perform ApproveLoanNotFound Task with LOAN_NOT_FOUND_APPROVER user
+        String LoanNotFoundApproveResult = "return";
+        performApproveLoanNotFoundTask(processInstance, ALoanNotFoundApprover, task,
+                LoanNotFoundApproveResult);
+
+        // Claim ReviewLoanNotFound Task with LOAN_NOT_FOUND_REVIEWER user
+        task = claimReviewLoanNotFoundTask(processInstance, ALoanNotFoundReviewer);
+
+        // Perform ReviewLoanNotFound Task with LOAN_NOT_FOUND_REVIEWER user
+        LoanNotFoundReviewResult = "deny";
+        performReviewLoanNotFoundTask(processInstance, ALoanNotFoundReviewer, task, LoanNotFoundReviewResult);
+
+        // Claim ApproveLoanNotFound Task with LOAN_NOT_FOUND_APPROVER user
+        task = claimApproveLoanNotFoundTask(processInstance, ALoanNotFoundApprover);
+
+        // Perform ApproveLoanNotFound Task with LOAN_NOT_FOUND_APPROVER user
+        LoanNotFoundApproveResult = "approve";
+        performApproveLoanNotFoundTask(processInstance, ALoanNotFoundApprover, task,
+                LoanNotFoundApproveResult);
+
+    }
+
+    // ---------------------------------------------------------------------------------------- Program Specific Testing
+
+    @Test
+    public void testLoanNotFoundAOnly() {
+
+        // Gather parameters
+        Map<String, Object> params = generateLoanNotFoundReviewParameters("A");
+
+        // Start Default Review Process
+        ProcessInstance processInstance = startLoanNotFoundReviewProcess(params);
+
+        Task task = null;
+        try {
+            // Claim ReviewLoanNotFound Task with B_LOAN_NOT_FOUND_REVIEWER user
+            User BLoanNotFoundReviewer = User.getFirstUserWithRole(Role.B_LOAN_NOT_FOUND_REVIEWER);
+            task = claimReviewLoanNotFoundTask(processInstance, BLoanNotFoundReviewer);
+        } catch (PermissionDeniedException exception) {
+            // This should throw a permission denied exception because an
+            // B_LOAN_NOT_FOUND_REVIEWER should not be able to take
+            // A_LOAN_NOT_FOUND_REVIEWER Reviewer tasks
+            System.out
+                    .println("B_LOAN_NOT_FOUND_REVIEWER correctly denied permission to claim A_LOAN_NOT_FOUND_REVIEWER task");
+        }
+
+        // Claim ReviewLoanNotFound Task with A_LOAN_NOT_FOUND_REVIEWER user
+        User ALoanNotFoundReviewer = User.getFirstUserWithRole(Role.A_LOAN_NOT_FOUND_REVIEWER);
+        task = claimReviewLoanNotFoundTask(processInstance, ALoanNotFoundReviewer);
+
+        // Perform ReviewLoanNotFound Task with A_LOAN_NOT_FOUND_REVIEWER user
+        String LoanNotFoundReviewResult = "deny";
+        performReviewLoanNotFoundTask(processInstance, ALoanNotFoundReviewer, task, LoanNotFoundReviewResult);
+
+        try {
+            // Claim ReviewLoanNotFound Task with B_LOAN_NOT_FOUND_APPROVER user
+            User BLoanNotFoundApprover = User.getFirstUserWithRole(Role.B_LOAN_NOT_FOUND_APPROVER);
+            task = claimReviewLoanNotFoundTask(processInstance, BLoanNotFoundApprover);
+        } catch (PermissionDeniedException exception) {
+            // This should throw a permission denied exception because an
+            // B_LOAN_NOT_FOUND_APPROVER should not be able to take
+            // A_LOAN_NOT_FOUND_APPROVER tasks
+            System.out
+                    .println("B_LOAN_NOT_FOUND_APPROVER correctly denied permission to claim A_LOAN_NOT_FOUND_APPROVER task");
+        }
+
+        // Claim ApproveLoanNotFound Task with A_LOAN_NOT_FOUND_APPROVER user
+        User ALoanNotFoundApprover = User.getFirstUserWithRole(Role.A_LOAN_NOT_FOUND_APPROVER);
+        task = claimApproveLoanNotFoundTask(processInstance, ALoanNotFoundApprover);
+
+        // Perform ApproveLoanNotFound Task with A_LOAN_NOT_FOUND_APPROVER user
+        String LoanNotFoundApproveResult = "approve";
+        performApproveLoanNotFoundTask(processInstance, ALoanNotFoundApprover, task,
+                LoanNotFoundApproveResult);
+
+    }
+
+    @Test
+    public void testLoanNotFoundBOnly() {
+
+        // Gather parameters
+        Map<String, Object> params = generateLoanNotFoundReviewParameters("B");
+
+        // Start Default Review Process
+        ProcessInstance processInstance = startLoanNotFoundReviewProcess(params);
+
+        Task task = null;
+        try {
+            // Claim ReviewLoanNotFound Task with A_LOAN_NOT_FOUND_REVIEWER user
+            User ALoanNotFoundReviewer = User.getFirstUserWithRole(Role.A_LOAN_NOT_FOUND_REVIEWER);
+            task = claimReviewLoanNotFoundTask(processInstance, ALoanNotFoundReviewer);
+        } catch (PermissionDeniedException exception) {
+            // This should throw a permission denied exception because an
+            // A_LOAN_NOT_FOUND_REVIEWER should not be able to take
+            // B_LOAN_NOT_FOUND_REVIEWER Reviewer tasks
+            System.out
+                    .println("A_LOAN_NOT_FOUND_REVIEWER correctly denied permission to claim B_LOAN_NOT_FOUND_REVIEWER task");
+        }
+
+        // Claim ReviewLoanNotFound Task with B_LOAN_NOT_FOUND_REVIEWER user
+        User BLoanNotFoundReviewer = User.getFirstUserWithRole(Role.B_LOAN_NOT_FOUND_REVIEWER);
+        task = claimReviewLoanNotFoundTask(processInstance, BLoanNotFoundReviewer);
+
+        // Perform ReviewLoanNotFound Task with B_LOAN_NOT_FOUND_REVIEWER user
+        String LoanNotFoundReviewResult = "deny";
+        performReviewLoanNotFoundTask(processInstance, BLoanNotFoundReviewer, task, LoanNotFoundReviewResult);
+
+        try {
+            // Claim ReviewLoanNotFound Task with A_LOAN_NOT_FOUND_APPROVER user
+            User ALoanNotFoundApprover = User.getFirstUserWithRole(Role.A_LOAN_NOT_FOUND_APPROVER);
+            task = claimReviewLoanNotFoundTask(processInstance, ALoanNotFoundApprover);
+        } catch (PermissionDeniedException exception) {
+            // This should throw a permission denied exception because an
+            // A_LOAN_NOT_FOUND_APPROVER should not be able to take
+            // B_LOAN_NOT_FOUND_APPROVER tasks
+            System.out
+                    .println("A_LOAN_NOT_FOUND_APPROVER correctly denied permission to claim B_LOAN_NOT_FOUND_REVIEWER task");
+        }
+
+        // Claim ApproveLoanNotFound Task with B_LOAN_NOT_FOUND_APPROVER user
+        User BLoanNotFoundApprover = User.getFirstUserWithRole(Role.B_LOAN_NOT_FOUND_APPROVER);
+        task = claimApproveLoanNotFoundTask(processInstance, BLoanNotFoundApprover);
+
+        // Perform ApproveLoanNotFound Task with B_LOAN_NOT_FOUND_APPROVER user
+        String LoanNotFoundApproveResult = "approve";
+        performApproveLoanNotFoundTask(processInstance, BLoanNotFoundApprover, task,
+                LoanNotFoundApproveResult);
+
+    }
+
+    // ------------------------------------------------------------------------------------------- Abort Process Testing
+
+    @SuppressWarnings("unused")
+    @Test
+    public void testLoanNotFoundReviewAbortReviewer() {
+
+        // Gather parameters
+        Map<String, Object> params = generateLoanNotFoundReviewParameters("A");
+
+        // Start Default Review Process
+        ProcessInstance processInstance = startLoanNotFoundReviewProcess(params);
+
+        // Claim ReviewLoanNotFound Task with LOAN_NOT_FOUND_REVIEWER user
+        User ALoanNotFoundReviewer = User.getFirstUserWithRole(Role.A_LOAN_NOT_FOUND_REVIEWER);
+        Task task = claimReviewLoanNotFoundTask(processInstance, ALoanNotFoundReviewer);
+
+        // Perform ReviewLoanNotFound Task with LOAN_NOT_FOUND_REVIEWER user
+        String LoanNotFoundReviewResult = "cancel";
+
+        abortAndAssert(processInstance);
+
+    }
+
+    @SuppressWarnings("unused")
+    @Test
+    public void testLoanNotFoundReviewAbortApprover() {
+
+        // Gather parameters
+        Map<String, Object> params = generateLoanNotFoundReviewParameters("A");
+
+        // Start Default Review Process
+        ProcessInstance processInstance = startLoanNotFoundReviewProcess(params);
+
+        // Claim ReviewLoanNotFound Task with LOAN_NOT_FOUND_REVIEWER user
+        User ALoanNotFoundReviewer = User.getFirstUserWithRole(Role.A_LOAN_NOT_FOUND_REVIEWER);
+        Task task = claimReviewLoanNotFoundTask(processInstance, ALoanNotFoundReviewer);
+
+        // Perform ReviewLoanNotFound Task with LOAN_NOT_FOUND_REVIEWER user
+        String LoanNotFoundReviewResult = "deny";
+        performReviewLoanNotFoundTask(processInstance, ALoanNotFoundReviewer, task, LoanNotFoundReviewResult);
+
+        // Claim ApproveLoanNotFound Task with LOAN_NOT_FOUND_APPROVER user
+        User ALoanNotFoundApprover = User.getFirstUserWithRole(Role.A_LOAN_NOT_FOUND_APPROVER);
+        task = claimApproveLoanNotFoundTask(processInstance, ALoanNotFoundApprover);
+
+        // Perform ApproveLoanNotFound Task with LOAN_NOT_FOUND_APPROVER user
+        String LoanNotFoundApproveResult = "cancel";
+
+        abortAndAssert(processInstance);
+
+    }
+
+    // ---------------------------------------------------------------------------------------- BPMN Interaction methods
+
+    private Map<String, Object> generateLoanNotFoundReviewParameters(String program) {
+        Map<String, Object> params = new HashMap<String, Object>();
+
+        params.put("changedLoanNotFoundReviewId", "1");
+        params.put("taskDescription", "LOAN_not_found_task");
+        params.put("program", program);
+
+        return params;
+    }
+
+    private ProcessInstance startLoanNotFoundReviewProcess(Map<String, Object> params) {
+
+        // Start process with parameters
+        ProcessInstance processInstance = ksession.startProcess(LOAN_NOT_FOUND_REVIEW_PROCESS_ID, params);
+
+        // Account for new nodes
+        assertNodeTriggered(processInstance.getId(), Node.LOAN_NOT_FOUND_START_NODE.getName());
+
+        return processInstance;
+    }
+
+    private Task claimReviewLoanNotFoundTask(ProcessInstance processInstance, User user) {
+
+        String username = user.getUsername();
+
+        // Get review task
+        Task task = getOpenTaskFromProcessInstanceId(processInstance.getId());
+        assertNotNull(task);
+
+        // Start review task with provided username
+        taskService.start(task.getId(), username);
+
+        // Account for new nodes
+        assertNodeTriggered(processInstance.getId(), Node.REVIEW_LOAN_NOT_FOUND_UESR_TASK.getName());
+
+        // Verify process instance is still running
+        assertProcessInstanceActive(processInstance.getId(), ksession);
+
+        return task;
+    }
+
+    private void performReviewLoanNotFoundTask(ProcessInstance processInstance, User user, Task task,
+            String reviewResult) {
+
+        String username = user.getUsername();
+
+        // Gather parameters
+        Map<String, Object> params = new HashMap<String, Object>();
+        params.put("reviewResult", reviewResult);
+
+        // Complete ProgramAnalystTask Task with provided username
+        taskService.complete(task.getId(), username, params);
+
+        if (reviewResult.equalsIgnoreCase("approve")) {
+            // Account for new nodes
+            assertNodeTriggered(processInstance.getId(), Node.REVIEW_LOAN_NOT_FOUND_END_NODE.getName());
+
+            // Verify process instance has completed
+            assertProcessInstanceCompleted(processInstance.getId(), ksession);
+
+        } else if (reviewResult.equalsIgnoreCase("deny")) {
+            // Verify process instance is still running
+            assertProcessInstanceActive(processInstance.getId(), ksession);
+        }
+    }
+
+    private Task claimApproveLoanNotFoundTask(ProcessInstance processInstance, User user) {
+
+        String username = user.getUsername();
+
+        // Get review task
+        Task task = getOpenTaskFromProcessInstanceId(processInstance.getId());
+        assertNotNull(task);
+
+        // Start review task with provided username
+        taskService.start(task.getId(), username);
+
+        // Account for new nodes
+        assertNodeTriggered(processInstance.getId(), Node.APPROVE_LOAN_NOT_FOUND_UESR_TASK.getName());
+
+        // Verify process instance is still running
+        assertProcessInstanceActive(processInstance.getId(), ksession);
+
+        return task;
+    }
+
+    private void performApproveLoanNotFoundTask(ProcessInstance processInstance, User user, Task task,
+            String reviewResult) {
+
+        String username = user.getUsername();
+
+        // Gather parameters
+        Map<String, Object> params = new HashMap<String, Object>();
+        params.put("reviewResult", reviewResult);
+
+        // Complete ProgramAnalystTask Task with provided username
+        taskService.complete(task.getId(), username, params);
+
+        if (reviewResult.equalsIgnoreCase("approve")
+                || reviewResult.equalsIgnoreCase("deny")) {
+            // Account for new nodes
+            assertNodeTriggered(processInstance.getId(), Node.APPROVE_LOAN_NOT_FOUND_END_NODE.getName());
+
+            // Verify process instance has completed
+            assertProcessInstanceCompleted(processInstance.getId(), ksession);
+
+        } else if (reviewResult.equalsIgnoreCase("return")) {
+            // Verify process instance is still running
+            assertProcessInstanceActive(processInstance.getId(), ksession);
+        }
+    }
+
+    private void abortAndAssert(ProcessInstance processInstance) {
+        // Abort process instance
+        ksession.abortProcessInstance(processInstance.getId());
+
+        // Verify process instance has aborted
+        assertProcessInstanceAborted(processInstance.getId(), ksession);
+    }
+}
