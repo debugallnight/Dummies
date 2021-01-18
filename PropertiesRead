@@ -1,0 +1,51 @@
+
+import java.util.HashMap;
+import java.util.Map;
+
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
+
+
+@Data
+@ConfigurationProperties("mytest")
+@Component
+public class EndpointProperties {
+    
+    private Map<String, MyApiRoute> endpoints = new HashMap<String, MyApiRoute>();
+    
+    /**
+     * Gets the endpoint from configuration for a given key. If the specified endpoint does not exist, throws an
+     * exception.
+     *
+     * @param key
+     *            to look for in the properties
+     * @return the found string value per key.
+     */
+    public String getEndpoint(String key) {
+        String serviceName = key.split("-")[0];
+        String serviceKey = key.split("-")[1];
+        
+        MyApiRoute MyApiRoute = endpoints.get(serviceName);
+        
+        if (MyApiRoute == null) {
+            throwIllegalStateException(key);
+        }
+        
+        String result = MyApiRoute.getUrl().get(serviceKey);
+        if (result == null || result.isEmpty()) {
+            throwIllegalStateException(key);
+        }
+        return result;
+    }
+    
+    private void throwIllegalStateException(String key) {
+        throw new IllegalStateException(
+                String.format(ErrorConstants.ERR_MISSING_ENDPOINT, key));
+    }
+    
+    @Data
+    @NoArgsConstructor
+    public static class MyApiRoute {
+        private Map<String, String> url = new HashMap<String, String>();
+    }
+}
