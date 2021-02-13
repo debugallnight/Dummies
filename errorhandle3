@@ -1,0 +1,128 @@
+public class ControllerExceptionHandler extends ResponseEntityExceptionHandler {
+    
+    private ObjectMapper objectMapper;
+    
+    @Autowired
+    public ControllerExceptionHandler(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
+    
+    /**
+     * Handles exceptions that occur in downstream services. Will parse an {@link ErrorResponseDto} if it can. If it
+     * cannot, it will throw a {@link MyNextRuntimeException} containing the IOException that triggered the parsing
+     * error.
+     * 
+     * @param t
+     *            the downstream exception that occurred.
+     * @return the response dto
+     */
+    @ExceptionHandler({ MyNextServiceException.class })
+    public ResponseEntity<?> handleRestException(MyNextServiceException t) {
+        
+        ErrorResponseDto dto;
+        try {
+            dto = objectMapper.readValue(t.getResponseBodyAsString(), ErrorResponseDto.class);
+            
+            // Certain errors cannot easily be handled by the ControllerExceptionHandler. For those errors, like a 404
+            // for an invalid URL, those are handled by spring. Since I cannot easily intercept those types of errors, i
+            // have
+            // included this logic to
+            // capture situations where this service receives a DTO from spring it could not convert.
+            if ((dto.getDate() == null && dto.getErrorCodes() == null && dto.getErrorId() == null)) {
+                
+                List<String> errorCodes = new ArrayList<String>();
+                errorCodes.add(t.getStatusCode().name());
+                dto.setErrorCodes(errorCodes);
+                return localErrorResponse(t, errorCodes, t.getResponseBodyAsString(),
+                        HttpStatus.valueOf(t.getRawStatusCode()));
+                
+            }
+            
+            return localErrorResponse(t, dto, t.getStatusCode());
+        } catch (IOException | IllegalArgumentException e) {
+            List<String> errorCodes = new ArrayList<String>();
+            errorCodes.add(HttpStatus.INTERNAL_SERVER_ERROR.name());
+            return handleUnhandledError(e);
+            
+        }
+        
+    }
+    
+    /**
+     * 500 series
+     */
+    @ExceptionHandler({ Throwable.class })
+    public ResponseEntity<?> handleUnhandledError(Throwable t) {
+        List<String> errorCodes = new ArrayList<String>();
+        errorCodes.add(HttpStatus.INTERNAL_SERVER_ERROR.name());
+        return localErrorResponse(t, errorCodes, t.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+    
+    /**
+     * Errors from this microservice.
+     */
+    @ExceptionHandler({ MyNextRuntimeException.class })
+    public ResponseEntity<?> handleInternalExceptions(MyNextRuntimeException t) {
+        return localErrorResponse(t, t.getErrorCodes(), t.getMessage(), t.getHttpStatus());
+    }
+    
+    protected ResponseEntity<Object> localErrorResponse(Throwable throwable, List<String> errorCodes,
+            String message,
+            HttpStatus status) {
+        
+        final String uid = createErrorId(throwable, status, null);
+        
+        ErrorResponseDto errorResponse = new ErrorResponseDto(errorCodes, throwable.getMessage(), uid);
+        log.error(String.format("Error caught: %s", errorResponse.toString()), throwable);
+        MDC.remove(LoggingConstants.MDC_KEY_ERROR_ID);
+        return response(errorResponse, status);
+        
+    }
+    
+    protected ResponseEntity<Object> localErrorResponse(Throwable t, ErrorResponseDto dto, HttpStatus status) {
+        createErrorId(t, status, dto.getErrorId());
+        log.error(String.format("Error caught: %s", dto.toString()), t);
+        MDC.remove(LoggingConstants.MDC_KEY_ERROR_ID);
+        return response(dto, status);
+        
+    }
+    
+    private String createErrorId(Throwable throwable, HttpStatus status, String uid) {
+        String message;
+        
+        if (uid == null) {
+            uid = UUID.randomUUID().toString();
+        }
+        
+        // For anyone curious, this sets the "errorId" field in our logging. Without it, it renders as "N/A isntead of
+        // the uid
+        MDC.put(LoggingConstants.MDC_KEY_ERROR_ID, uid);
+        
+        if (throwable == null) {
+            message = "Unknown error caught in RESTController";
+            log.error(String.format("%s, {}", message), status);
+        }
+        
+        return uid;
+    }
+    
+    protected <T> ResponseEntity<T> response(T body, HttpStatus status) {
+        log.debug("Responding with a status of {}", status);
+        return new ResponseEntity<T>(body, new HttpHeaders(), status);
+    }
+    
+    @Override
+    protected ResponseEntity<Object> handleExceptionInternal(Exception ex, Object body,
+            HttpHeaders headers, HttpStatus status, WebRequest request) {
+        
+        if (HttpStatus.INTERNAL_SERVER_ERROR.equals(status)) {
+            request.setAttribute(WebUtils.ERROR_EXCEPTION_ATTRIBUTE, ex, WebRequest.SCOPE_REQUEST);
+        }
+        
+        List<String> errorCodes = new ArrayList<String>();
+        errorCodes.add(status.name());
+        
+        return localErrorResponse(ex, errorCodes, ex.getMessage(), status);
+    }
+    
+}
