@@ -1,0 +1,18 @@
+public class MyNextServiceErrorHandler extends DefaultResponseErrorHandler {
+    
+    @Override
+    public void handleError(ClientHttpResponse response) throws IOException {
+        HttpStatus statusCode = getHttpStatusCode(response);
+        switch (statusCode.series()) {
+            case CLIENT_ERROR:
+                throw new MyNextClientServiceException(statusCode, statusCode.getReasonPhrase(),
+                        response.getHeaders(), getResponseBody(response), getCharset(response));
+            case SERVER_ERROR:
+                throw new MyNextServerServiceException(statusCode, statusCode.getReasonPhrase(),
+                        response.getHeaders(), getResponseBody(response), getCharset(response));
+            default:
+                throw new RestClientException("Unknown status code [" + statusCode + "]");
+        }
+        
+    }
+}
