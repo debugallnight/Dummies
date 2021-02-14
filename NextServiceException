@@ -1,0 +1,11 @@
+public abstract class NextServiceException extends HttpStatusCodeException {
+    
+
+    
+    protected NextServiceException(HttpStatus statusCode, String statusText, HttpHeaders responseHeaders,
+            byte[] responseBody, Charset responseCharset) {
+        super(statusCode, statusText, responseHeaders, responseBody, responseCharset);
+        
+    }
+    
+}
