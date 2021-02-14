@@ -1,0 +1,20 @@
+@Configuration
+public class RestTemplateConfiguration {
+    
+    private NextServiceErrorHandler errorHandler;
+    
+    @Autowired
+    public RestTemplateConfiguration(NextServiceErrorHandler errorHandler) {
+        this.errorHandler = errorHandler;
+    }
+    
+    @LoadBalanced
+    @Bean
+    public RestOperations restOperations() {
+        RestTemplate restTemplate = new RestTemplate();
+        restTemplate.setErrorHandler(errorHandler);
+        
+        return restTemplate;
+    }
+    
+}
