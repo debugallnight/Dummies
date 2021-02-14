@@ -1,0 +1,8 @@
+public class NextServerServiceException extends NextServiceException {
+
+    public NextServerServiceException(HttpStatus statusCode, String statusText, HttpHeaders responseHeaders,
+            byte[] responseBody, Charset responseCharset) {
+        super(statusCode, statusText, responseHeaders, responseBody, responseCharset);
+    }
+    
+}
