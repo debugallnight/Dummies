@@ -8,7 +8,7 @@ public class ControllerExceptionHandler extends ResponseEntityExceptionHandler {
     }
     
     /**
-     * Handles exceptions that occur in downstream services. Will parse an {@link ErrorResponseDto} if it can. If it
+     * exceptions that occur in downstream services. Will parse an {@link ErrorResponseDto} if it can. If it
      * cannot, it will throw a {@link MyNextRuntimeException} containing the IOException that triggered the parsing
      * error.
      * 
@@ -94,8 +94,7 @@ public class ControllerExceptionHandler extends ResponseEntityExceptionHandler {
             uid = UUID.randomUUID().toString();
         }
         
-        // For anyone curious, this sets the "errorId" field in our logging. Without it, it renders as "N/A isntead of
-        // the uid
+        
         MDC.put(LoggingConstants.MDC_KEY_ERROR_ID, uid);
         
         if (throwable == null) {
