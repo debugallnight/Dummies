@@ -1,3 +1,11 @@
+   public RestOperations restOperations() {
+        RestTemplate restTemplate = new RestTemplate();
+        restTemplate.setErrorHandler(errorHandler);
+        
+        return restTemplate;
+    }
+    
+
 public class ControllerExceptionHandler extends ResponseEntityExceptionHandler {
     
     private ObjectMapper objectMapper;
@@ -13,8 +21,8 @@ public class ControllerExceptionHandler extends ResponseEntityExceptionHandler {
      * error.
      * 
      * @param t
-     *            the downstream exception that occurred.
-     * @return the response dto
+     *            the downstream exception .
+     * @return the response 
      */
     @ExceptionHandler({ MyNextServiceException.class })
     public ResponseEntity<?> handleRestException(MyNextServiceException t) {
@@ -98,7 +106,7 @@ public class ControllerExceptionHandler extends ResponseEntityExceptionHandler {
         MDC.put(LoggingConstants.MDC_KEY_ERROR_ID, uid);
         
         if (throwable == null) {
-            message = "Unknown error caught in RESTController";
+            message = "Unknown error caught in REST ontroller";
             log.error(String.format("%s, {}", message), status);
         }
         
@@ -111,14 +119,20 @@ public class ControllerExceptionHandler extends ResponseEntityExceptionHandler {
     }
     
     @Override
-    protected ResponseEntity<Object> handleExceptionInternal(Exception ex, Object body,
+    protected ResponseEntity<Object> handleExceptionInternal  (Exception ex, Object body,
             HttpHeaders headers, HttpStatus status, WebRequest request) {
         
         if (HttpStatus.INTERNAL_SERVER_ERROR.equals(status)) {
             request.setAttribute(WebUtils.ERROR_EXCEPTION_ATTRIBUTE, ex, WebRequest.SCOPE_REQUEST);
+            
+            
         }
         
         List<String> errorCodes = new ArrayList<String>();
+        
+        
+        
+        
         errorCodes.add(status.name());
         
         return localErrorResponse(ex, errorCodes, ex.getMessage(), status);
