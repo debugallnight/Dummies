@@ -1,0 +1,110 @@
+
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
+
+import javax.annotation.PostConstruct;
+
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.cloud.context.config.annotation.RefreshScope;
+import org.springframework.stereotype.Component;
+
+
+@Data
+@ConfigurationProperties("jobs")
+@Component
+@RefreshScope
+@Slf4j
+public class JobProperties {
+    
+
+    private Map<String, SolrJobProperties> solrjob = new HashMap<String, SolrJobProperties>();
+    
+    private SolrDefaults solr = new SolrDefaults();
+
+    private Map<String, BasicJobProperties> basicJobs = new HashMap<String, BasicJobProperties>();
+  
+    private Map<String, BasicJobProperties> allJobs = new HashMap<String, BasicJobProperties>();
+    
+    @PostConstruct
+    public void init() {
+        for (Entry<String, SolrJobProperties> entry : this.solrjob.entrySet()) {
+          
+            allJobs.put(entry.getValue().getJobName(), entry.getValue());
+        }
+        
+        for (Entry<String, BasicJobProperties> entry : this.basicJobs.entrySet()) {
+
+            allJobs.put(entry.getValue().getJobName(), entry.getValue());
+        }
+        
+    }
+    
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class SolrDefaults {
+        /**
+         * Solr server username.
+         */
+        private String username;
+        /**
+         * Solr server password.
+         */
+        private String password;
+        /**
+         * Solr server location
+         */
+        private String location;
+        /**
+         * If true, job will attempt to perform its full import.
+         *
+         */
+        private boolean cleanImportFlag;
+    }
+    
+  
+    @Data
+    public static class BasicJobProperties {
+        protected boolean enabled;
+        protected String cron;
+        protected String groupName;
+        protected String jobName;
+        protected String description;
+        protected boolean durable;
+        protected boolean fullImport;
+    }
+    
+    @Data
+    @NoArgsConstructor
+    public static class SolrJobProperties extends BasicJobProperties {
+        
+        /**
+         * Location of solr server. Can be used to overwrite global server location.
+         */
+        private String location;
+        
+        /**
+         * Core name. Required property.
+         */
+        private String core;
+        
+        /**
+         * If true, job will attempt to perform its full import.
+         *
+         */
+        private boolean cleanImportFlag;
+        
+        // overwrite global values
+        private String username;
+        private String password;
+        
+        @Override
+        public String toString() {
+            return "SolrJobProperties [enabled=" + enabled + ", location=" + location + ", cron=" + cron
+                    + ", cleanImportFlag=" + cleanImportFlag + "]" + super.toString();
+        }
+    }
+    
+}
