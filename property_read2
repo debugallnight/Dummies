@@ -1,0 +1,21 @@
+jobs.solr.location=${base.solr.location}
+jobs.solr.username=${base.solr.username}
+jobs.solr.password=${base.solr.password}
+
+# SOLR DELTA JOB CONFIGURATION
+jobs.solrjob.opportunities.enabled=true
+jobs.solrjob.opportunities.cron=0 0/5 * * * ? *
+jobs.solrjob.opportunities.core=ng_opportunities_core
+jobs.solrjob.opportunities.cleanImportFlag=false
+jobs.solrjob.opportunities.groupName=solrJob
+jobs.solrjob.opportunities.jobName=OPPORTUNITIES
+jobs.solrjob.opportunities.durable=true
+
+jobs.routes.web=http://aaaaaa
+
+
+server.contextPath=/my-job-service
+
+jobs.solr.location=${base..location}
+jobs.solr.username=${base..username}
+jobs.solr.password=${base..password}
